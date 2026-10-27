@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Shift Notes</title>
+<meta name="description" content="A minimal installable web app: it goes on the home screen, opens without browser chrome and keeps working with no connection." />
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#0A1220" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<style>
+  :root { color-scheme: light dark; --bg:#F4F4EF; --card:#FFFFFF; --ink:#1A1A19; --dim:#6B6B64; --line:#DCDCD4; --brand:#208AEC; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0A1220; --card:#131C2B; --ink:#F2F4F7; --dim:#95A1B3; --line:#223049; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: env(safe-area-inset-top) 16px env(safe-area-inset-bottom); }
+  header { display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+    max-width:560px; margin:0 auto; padding:24px 0 12px; }
+  h1 { font-size:21px; margin:0; letter-spacing:-0.01em; }
+  #net { font-size:12px; color:var(--dim); }
+  #net.off { color:#B3261E; font-weight:600; }
+  main { max-width:560px; margin:0 auto 40px; }
+  form { display:flex; gap:8px; margin:0 0 16px; }
+  input { flex:1; min-width:0; padding:12px 14px; font-size:16px; color:var(--ink);
+    background:var(--card); border:1px solid var(--line); border-radius:10px; }
+  button { padding:12px 18px; font-size:15px; font-weight:600; cursor:pointer;
+    color:#fff; background:var(--brand); border:0; border-radius:10px; }
+  ul { list-style:none; margin:0; padding:0; }
+  li { display:flex; align-items:center; gap:10px; background:var(--card);
+    border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:8px; }
+  li span { flex:1; }
+  li button { background:none; color:var(--dim); font-size:13px; padding:4px 6px; }
+  .empty { color:var(--dim); font-size:14px; padding:14px 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Shift Notes</h1>
+  <span id="net">online</span>
+</header>
+<main>
+  <form id="add">
+    <input id="text" placeholder="Add a note" aria-label="Note text" required />
+    <button type="submit">Add</button>
+  </form>
+  <ul id="list"></ul>
+  <p class="empty" id="empty" hidden>Nothing yet. Notes are kept on this device and survive with no connection.</p>
+</main>
+<script>
+  // Notes live on the device, so the app is useful with no connection at all.
+  // Swapping this for a backend is one fetch call — see the article.
+  const KEY = 'shift-notes';
+  const list = document.getElementById('list');
+  const empty = document.getElementById('empty');
+  const read = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; } };
+  const write = (n) => { try { localStorage.setItem(KEY, JSON.stringify(n)); } catch {} };
+
+  function render() {
+    const notes = read();
+    list.replaceChildren(...notes.map((n, i) => {
+      const li = document.createElement('li');
+      const s = document.createElement('span');
+      s.textContent = n;
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = 'Remove';
+      b.addEventListener('click', () => { const a = read(); a.splice(i, 1); write(a); render(); });
+      li.append(s, b);
+      return li;
+    }));
+    empty.hidden = notes.length > 0;
+  }
+
+  document.getElementById('add').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = document.getElementById('text');
+    const v = input.value.trim();
+    if (!v) return;
+    write([...read(), v]);
+    input.value = '';
+    render();
+  });
+
+  const net = document.getElementById('net');
+  const paint = () => {
+    net.textContent = navigator.onLine ? 'online' : 'offline — still working';
+    net.classList.toggle('off', !navigator.onLine);
+  };
+  addEventListener('online', paint);
+  addEventListener('offline', paint);
+  paint();
+  render();
+
+  if ('serviceWorker' in navigator) {
+    addEventListener('load', () => navigator.serviceWorker.register('sw.js'));
+  }
+</script>
+</body>
+</html>
